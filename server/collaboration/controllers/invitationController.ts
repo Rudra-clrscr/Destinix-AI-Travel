@@ -31,23 +31,27 @@ export class InvitationController {
     try {
       const invitationId = req.params.id;
       const userId = req.user.id;
+      const userEmail = req.user.email;
 
-      const member = await InvitationService.acceptInvitation(invitationId, userId);
+      const member = await InvitationService.acceptInvitation(invitationId, userId, userEmail);
       return res.json({ success: true, member });
     } catch (error: any) {
       console.error("Accept invitation error:", error);
-      return res.status(500).json({ error: error.message || "Failed to accept invitation" });
+      const status = error.message?.startsWith("Access denied") ? 403 : 500;
+      return res.status(status).json({ error: error.message || "Failed to accept invitation" });
     }
   }
 
   static async declineInvitation(req: any, res: Response) {
     try {
       const invitationId = req.params.id;
-      await InvitationService.declineInvitation(invitationId);
+      const userEmail = req.user.email;
+      await InvitationService.declineInvitation(invitationId, userEmail);
       return res.json({ success: true, message: "Invitation declined successfully" });
     } catch (error: any) {
       console.error("Decline invitation error:", error);
-      return res.status(500).json({ error: error.message || "Failed to decline invitation" });
+      const status = error.message?.startsWith("Access denied") ? 403 : 500;
+      return res.status(status).json({ error: error.message || "Failed to decline invitation" });
     }
   }
 }

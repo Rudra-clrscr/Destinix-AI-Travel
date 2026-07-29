@@ -78,7 +78,7 @@ export class InvitationService {
     });
   }
 
-  static async acceptInvitation(invitationId: string, userId: string) {
+  static async acceptInvitation(invitationId: string, userId: string, userEmail: string) {
     return await prisma.$transaction(async (tx) => {
       // 1. Retrieve the invitation
       const invite = await tx.tripInvitation.findUnique({
@@ -87,6 +87,9 @@ export class InvitationService {
       if (!invite) throw new Error("Invitation not found");
       if (invite.status !== InvitationStatus.PENDING) {
         throw new Error("Invitation is no longer pending");
+      }
+      if (invite.email.toLowerCase() !== userEmail.toLowerCase()) {
+        throw new Error("Access denied. This invitation does not belong to you.");
       }
 
       // 2. Add member
@@ -117,13 +120,16 @@ export class InvitationService {
     });
   }
 
-  static async declineInvitation(invitationId: string) {
+  static async declineInvitation(invitationId: string, userEmail: string) {
     const invite = await prisma.tripInvitation.findUnique({
       where: { id: invitationId }
     });
     if (!invite) throw new Error("Invitation not found");
     if (invite.status !== InvitationStatus.PENDING) {
       throw new Error("Invitation is no longer pending");
+    }
+    if (invite.email.toLowerCase() !== userEmail.toLowerCase()) {
+      throw new Error("Access denied. This invitation does not belong to you.");
     }
 
     return await prisma.tripInvitation.update({

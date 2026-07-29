@@ -104,7 +104,7 @@ describe("Collaborative Trip Planning Services", () => {
       vi.mocked(prisma.tripMember.upsert).mockResolvedValue({ id: "member_1" } as any);
       vi.mocked(prisma.tripInvitation.update).mockResolvedValue({} as any);
 
-      const result = await InvitationService.acceptInvitation("invite_1", "user_joiner");
+      const result = await InvitationService.acceptInvitation("invite_1", "user_joiner", "USER@test.com");
 
       expect(prisma.tripMember.upsert).toHaveBeenCalledWith({
         where: { tripGroupId_userId: { tripGroupId: "group_1", userId: "user_joiner" } },
@@ -116,6 +116,43 @@ describe("Collaborative Trip Planning Services", () => {
         data: { status: "ACCEPTED" }
       });
       expect(result).toEqual({ id: "member_1" });
+    });
+
+    it("should reject accepting an invitation that does not belong to the caller", async () => {
+      const mockInvite = { id: "invite_1", tripGroupId: "group_1", email: "user@test.com", status: "PENDING" };
+      vi.mocked(prisma.tripInvitation.findUnique).mockResolvedValue(mockInvite as any);
+
+      await expect(
+        InvitationService.acceptInvitation("invite_1", "attacker_user", "attacker@test.com")
+      ).rejects.toThrow("Access denied. This invitation does not belong to you.");
+
+      expect(prisma.tripMember.upsert).not.toHaveBeenCalled();
+      expect(prisma.tripInvitation.update).not.toHaveBeenCalled();
+    });
+
+    it("should reject declining an invitation that does not belong to the caller", async () => {
+      const mockInvite = { id: "invite_1", tripGroupId: "group_1", email: "user@test.com", status: "PENDING" };
+      vi.mocked(prisma.tripInvitation.findUnique).mockResolvedValue(mockInvite as any);
+
+      await expect(
+        InvitationService.declineInvitation("invite_1", "attacker@test.com")
+      ).rejects.toThrow("Access denied. This invitation does not belong to you.");
+
+      expect(prisma.tripInvitation.update).not.toHaveBeenCalled();
+    });
+
+    it("should allow declining an invitation by the actual invitee (case-insensitive email match)", async () => {
+      const mockInvite = { id: "invite_1", tripGroupId: "group_1", email: "user@test.com", status: "PENDING" };
+      vi.mocked(prisma.tripInvitation.findUnique).mockResolvedValue(mockInvite as any);
+      vi.mocked(prisma.tripInvitation.update).mockResolvedValue({ ...mockInvite, status: "DECLINED" } as any);
+
+      const result = await InvitationService.declineInvitation("invite_1", "USER@test.com");
+
+      expect(prisma.tripInvitation.update).toHaveBeenCalledWith({
+        where: { id: "invite_1" },
+        data: { status: "DECLINED" }
+      });
+      expect(result.status).toBe("DECLINED");
     });
   });
 
