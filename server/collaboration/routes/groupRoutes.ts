@@ -50,6 +50,29 @@ router.get("/groups/user/my-groups", authenticate, GroupController.listUserGroup
 router.get("/groups/:id", authenticate, checkGroupMembership, GroupController.getGroupDetails);
 router.delete("/groups/:id", authenticate, checkGroupMembership, checkGroupRole(["OWNER"]), GroupController.deleteGroup);
 
+// --- Group Membership Management ---
+router.delete(
+  "/groups/:id/leave",
+  authenticate,
+  checkGroupMembership,
+  GroupController.leaveGroup
+);
+router.delete(
+  "/groups/:id/members/:memberId",
+  authenticate,
+  checkGroupMembership,
+  checkGroupRole(["OWNER"]),
+  GroupController.removeMember
+);
+router.patch(
+  "/groups/:id/members/:memberId/role",
+  authenticate,
+  checkGroupMembership,
+  checkGroupRole(["OWNER"]),
+  validateBody(["role"]),
+  GroupController.updateMemberRole
+);
+
 // --- Invitations ---
 router.post(
   "/groups/:id/invite",

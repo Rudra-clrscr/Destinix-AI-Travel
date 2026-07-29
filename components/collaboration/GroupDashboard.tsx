@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { User } from "../../types";
-import { getGroupDetails } from "../../services/collaboration/groupService";
+import { getGroupDetails, leaveGroup, removeMember, updateMemberRole } from "../../services/collaboration/groupService";
 import { inviteMember } from "../../services/collaboration/invitationService";
 import { useGroups } from "../../hooks/collaboration/useGroups";
 
@@ -15,7 +15,7 @@ import { InviteMemberModal } from "./InviteMemberModal";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Calendar, MessageSquare, MapPin, CreditCard, 
-  Users, Trash2, ArrowLeft, Plus, Mail, Compass, Loader2
+  Users, Trash2, ArrowLeft, Plus, Mail, Compass, Loader2, LogOut, UserX
 } from "lucide-react";
 
 interface GroupDashboardProps {
@@ -78,6 +78,36 @@ export const GroupDashboard: React.FC<GroupDashboardProps> = ({ user, tab = "das
       navigate("/groups");
     } catch (err: any) {
       alert(err.message || "Failed to delete group");
+    }
+  };
+
+  const handleLeaveGroup = async () => {
+    if (!groupId || !window.confirm("Are you sure you want to leave this group?")) return;
+    try {
+      await leaveGroup(groupId);
+      navigate("/groups");
+    } catch (err: any) {
+      alert(err.message || "Failed to leave group");
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string, memberName: string) => {
+    if (!groupId || !window.confirm(`Remove ${memberName} from this group?`)) return;
+    try {
+      await removeMember(groupId, memberId);
+      loadGroupDetails();
+    } catch (err: any) {
+      alert(err.message || "Failed to remove member");
+    }
+  };
+
+  const handleRoleChange = async (memberId: string, role: string) => {
+    if (!groupId) return;
+    try {
+      await updateMemberRole(groupId, memberId, role);
+      loadGroupDetails();
+    } catch (err: any) {
+      alert(err.message || "Failed to update member role");
     }
   };
 
@@ -181,6 +211,17 @@ export const GroupDashboard: React.FC<GroupDashboardProps> = ({ user, tab = "das
                   <span>Delete Group</span>
                 </button>
               )}
+
+              {!isOwner && (
+                <button
+                  onClick={handleLeaveGroup}
+                  className="flex items-center space-x-2 bg-white/5 border border-white/10 hover:border-red-500/30 hover:bg-red-500/10 px-6 py-3.5 rounded-2xl text-gray-400 hover:text-red-400 font-bold text-sm transition-all"
+                  title="Leave Group"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Leave Group</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -259,26 +300,53 @@ export const GroupDashboard: React.FC<GroupDashboardProps> = ({ user, tab = "das
                   <span>Group Companions ({group.members.length})</span>
                 </h3>
                 <div className="space-y-4">
-                  {group.members.map((m: any) => (
-                    <div key={m.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-2xl hover:border-white/10 transition-all text-sm">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-xs text-white overflow-hidden shrink-0">
-                          {m.user.avatar ? (
-                            <img src={m.user.avatar} alt={m.user.name} className="w-full h-full object-cover" />
+                  {group.members.map((m: any) => {
+                    const isMemberOwner = m.role === "OWNER";
+                    return (
+                      <div key={m.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-2xl hover:border-white/10 transition-all text-sm">
+                        <div className="flex items-center space-x-3 min-w-0">
+                          <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-xs text-white overflow-hidden shrink-0">
+                            {m.user.avatar ? (
+                              <img src={m.user.avatar} alt={m.user.name} className="w-full h-full object-cover" />
+                            ) : (
+                              m.user.name.charAt(0).toUpperCase()
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-white font-medium truncate">{m.user.name}</p>
+                            <p className="text-[10px] text-gray-500 truncate">{m.user.email}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2 shrink-0">
+                          {isOwner && !isMemberOwner ? (
+                            <select
+                              value={m.role}
+                              onChange={(e) => handleRoleChange(m.id, e.target.value)}
+                              className="text-[9px] bg-white/5 px-2 py-1 rounded border border-white/10 text-gray-300 uppercase tracking-widest font-mono focus:outline-none focus:border-indigo-500/50"
+                            >
+                              <option value="EDITOR">EDITOR</option>
+                              <option value="VIEWER">VIEWER</option>
+                            </select>
                           ) : (
-                            m.user.name.charAt(0).toUpperCase()
+                            <span className="text-[9px] bg-white/5 px-2 py-0.5 rounded border border-white/10 text-gray-400 uppercase tracking-widest font-mono">
+                              {m.role}
+                            </span>
+                          )}
+
+                          {isOwner && !isMemberOwner && (
+                            <button
+                              onClick={() => handleRemoveMember(m.id, m.user.name)}
+                              className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                              title={`Remove ${m.user.name}`}
+                            >
+                              <UserX className="w-3.5 h-3.5" />
+                            </button>
                           )}
                         </div>
-                        <div>
-                          <p className="text-white font-medium">{m.user.name}</p>
-                          <p className="text-[10px] text-gray-500">{m.user.email}</p>
-                        </div>
                       </div>
-                      <span className="text-[9px] bg-white/5 px-2 py-0.5 rounded border border-white/10 text-gray-400 uppercase tracking-widest font-mono">
-                        {m.role}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 

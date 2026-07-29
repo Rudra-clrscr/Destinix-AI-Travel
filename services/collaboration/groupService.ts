@@ -67,3 +67,40 @@ export const deleteGroup = async (id: string) => {
   }
   return await res.json();
 };
+
+export const leaveGroup = async (id: string) => {
+  const res = await fetch(`/api/groups/${id}/leave`, {
+    method: "DELETE",
+    headers: getHeaders()
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to leave group");
+  }
+  return await res.json();
+};
+
+export const removeMember = async (groupId: string, memberId: string) => {
+  const res = await fetch(`/api/groups/${groupId}/members/${memberId}`, {
+    method: "DELETE",
+    headers: getHeaders()
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to remove member");
+  }
+  return await res.json();
+};
+
+export const updateMemberRole = async (groupId: string, memberId: string, role: string) => {
+  const res = await fetch(`/api/groups/${groupId}/members/${memberId}/role`, {
+    method: "PATCH",
+    headers: getHeaders(),
+    body: JSON.stringify({ role })
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to update member role");
+  }
+  return await res.json();
+};

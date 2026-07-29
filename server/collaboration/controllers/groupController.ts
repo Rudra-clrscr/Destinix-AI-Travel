@@ -47,4 +47,56 @@ export class GroupController {
       return res.status(500).json({ error: error.message || "Failed to delete group" });
     }
   }
+
+  // --- Group Membership Management ---
+
+  static async leaveGroup(req: any, res: Response) {
+    try {
+      const groupId = req.params.id;
+      const userId = req.user.id;
+      await GroupService.leaveGroup(groupId, userId);
+      return res.json({ success: true, message: "You have left the group" });
+    } catch (error: any) {
+      console.error("Leave group error:", error);
+      const status = error.message?.includes("cannot leave") ? 403 : 500;
+      return res.status(status).json({ error: error.message || "Failed to leave group" });
+    }
+  }
+
+  static async removeMember(req: any, res: Response) {
+    try {
+      const groupId = req.params.id;
+      const { memberId } = req.params;
+      await GroupService.removeMember(groupId, memberId);
+      return res.json({ success: true, message: "Member removed from group" });
+    } catch (error: any) {
+      console.error("Remove member error:", error);
+      const status = error.message?.includes("cannot be removed")
+        ? 403
+        : error.message?.includes("not found")
+        ? 404
+        : 500;
+      return res.status(status).json({ error: error.message || "Failed to remove member" });
+    }
+  }
+
+  static async updateMemberRole(req: any, res: Response) {
+    try {
+      const groupId = req.params.id;
+      const { memberId } = req.params;
+      const { role } = req.body;
+      const updated = await GroupService.updateMemberRole(groupId, memberId, role);
+      return res.json(updated);
+    } catch (error: any) {
+      console.error("Update member role error:", error);
+      const status = error.message?.includes("Cannot change")
+        ? 403
+        : error.message?.includes("not found")
+        ? 404
+        : error.message?.includes("Invalid role")
+        ? 400
+        : 500;
+      return res.status(status).json({ error: error.message || "Failed to update member role" });
+    }
+  }
 }

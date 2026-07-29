@@ -72,4 +72,79 @@ export class GroupService {
       where: { id: groupId }
     });
   }
+
+  // --- Group Membership Management ---
+
+  static async leaveGroup(groupId: string, userId: string) {
+    const group = await prisma.tripGroup.findUnique({
+      where: { id: groupId }
+    });
+    if (!group) {
+      throw new Error("Trip group not found");
+    }
+    if (group.ownerId === userId) {
+      throw new Error("Group owners cannot leave the group. Transfer ownership or delete the group instead.");
+    }
+
+    return await prisma.tripMember.delete({
+      where: {
+        tripGroupId_userId: {
+          tripGroupId: groupId,
+          userId
+        }
+      }
+    });
+  }
+
+  static async removeMember(groupId: string, memberId: string) {
+    const member = await prisma.tripMember.findUnique({
+      where: { id: memberId }
+    });
+    if (!member || member.tripGroupId !== groupId) {
+      throw new Error("Member not found in this group");
+    }
+
+    const group = await prisma.tripGroup.findUnique({
+      where: { id: groupId }
+    });
+    if (!group) {
+      throw new Error("Trip group not found");
+    }
+    if (group.ownerId === member.userId) {
+      throw new Error("The group owner cannot be removed. Transfer ownership or delete the group instead.");
+    }
+
+    return await prisma.tripMember.delete({
+      where: { id: memberId }
+    });
+  }
+
+  static async updateMemberRole(groupId: string, memberId: string, role: GroupRole) {
+    const allowedRoles: GroupRole[] = [GroupRole.EDITOR, GroupRole.VIEWER];
+    if (!allowedRoles.includes(role)) {
+      throw new Error(`Invalid role. Allowed roles: ${allowedRoles.join(", ")}`);
+    }
+
+    const member = await prisma.tripMember.findUnique({
+      where: { id: memberId }
+    });
+    if (!member || member.tripGroupId !== groupId) {
+      throw new Error("Member not found in this group");
+    }
+
+    const group = await prisma.tripGroup.findUnique({
+      where: { id: groupId }
+    });
+    if (!group) {
+      throw new Error("Trip group not found");
+    }
+    if (group.ownerId === member.userId) {
+      throw new Error("Cannot change the group owner's role. Transfer ownership or delete the group instead.");
+    }
+
+    return await prisma.tripMember.update({
+      where: { id: memberId },
+      data: { role }
+    });
+  }
 }
