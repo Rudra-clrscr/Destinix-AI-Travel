@@ -41,6 +41,30 @@ export const useBookings = (groupId: string | undefined) => {
     }
   };
 
+  const updateBooking = async (
+    id: string,
+    bookingReference: string,
+    bookingType: string,
+    amount: number,
+    status: string
+  ) => {
+    if (!groupId) return;
+    try {
+      return await bookingService.updateBooking(id, groupId, bookingReference, bookingType, amount, status);
+    } catch (err: any) {
+      throw new Error(err.message || "Failed to update booking");
+    }
+  };
+
+  const deleteBooking = async (id: string) => {
+    if (!groupId) return;
+    try {
+      await bookingService.deleteBooking(id, groupId);
+    } catch (err: any) {
+      throw new Error(err.message || "Failed to delete booking");
+    }
+  };
+
   useEffect(() => {
     if (!groupId) return;
 
@@ -56,12 +80,27 @@ export const useBookings = (groupId: string | undefined) => {
       });
     };
 
+    const handleUpdated = (updatedBooking: any) => {
+      setBookings(prev => {
+        if (updatedBooking.deleted) {
+          return prev.filter(b => b.id !== updatedBooking.id);
+        }
+        const index = prev.findIndex(b => b.id === updatedBooking.id);
+        if (index === -1) return prev;
+        const updated = [...prev];
+        updated[index] = updatedBooking;
+        return updated;
+      });
+    };
+
     socket.on("booking:created", handleCreated);
+    socket.on("booking:updated", handleUpdated);
 
     return () => {
       socket.off("booking:created", handleCreated);
+      socket.off("booking:updated", handleUpdated);
     };
   }, [groupId]);
 
-  return { bookings, loading, error, fetchBookings, addBooking };
+  return { bookings, loading, error, fetchBookings, addBooking, updateBooking, deleteBooking };
 };

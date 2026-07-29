@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useBookings } from "../../hooks/collaboration/useBookings";
 import { formatCurrency } from "../../utils/currency";
-import { Plus, Plane, Hotel, Car, Shield, Link, Check, X, FileText, Loader2 } from "lucide-react";
+import { Plus, Plane, Hotel, Car, Shield, Link, Check, X, FileText, Loader2, Edit2, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface SharedBookingsProps {
@@ -10,7 +10,7 @@ interface SharedBookingsProps {
 }
 
 export const SharedBookings: React.FC<SharedBookingsProps> = ({ groupId, userRole }) => {
-  const { bookings, loading, addBooking } = useBookings(groupId);
+  const { bookings, loading, addBooking, updateBooking, deleteBooking } = useBookings(groupId);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -19,6 +19,14 @@ export const SharedBookings: React.FC<SharedBookingsProps> = ({ groupId, userRol
   const [type, setType] = useState("Flight");
   const [amount, setAmount] = useState("");
   const [status, setStatus] = useState("Confirmed");
+
+  // Edit states
+  const [editingBooking, setEditingBooking] = useState<any | null>(null);
+  const [editReference, setEditReference] = useState("");
+  const [editType, setEditType] = useState("Flight");
+  const [editAmount, setEditAmount] = useState("");
+  const [editStatus, setEditStatus] = useState("Confirmed");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const canEdit = userRole === "OWNER" || userRole === "EDITOR";
 
@@ -56,6 +64,38 @@ export const SharedBookings: React.FC<SharedBookingsProps> = ({ groupId, userRol
       alert("Failed to record booking");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleStartEdit = (booking: any) => {
+    setEditingBooking(booking);
+    setEditReference(booking.bookingReference);
+    setEditType(booking.bookingType);
+    setEditAmount(String(booking.amount));
+    setEditStatus(booking.status);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBooking || !editReference.trim() || !editAmount.trim() || !canEdit || savingEdit) return;
+
+    setSavingEdit(true);
+    try {
+      await updateBooking(editingBooking.id, editReference.trim(), editType, Number(editAmount), editStatus);
+      setEditingBooking(null);
+    } catch (err) {
+      alert("Failed to update booking");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDelete = async (bookingId: string) => {
+    if (!canEdit || !window.confirm("Are you sure you want to delete this booking?")) return;
+    try {
+      await deleteBooking(bookingId);
+    } catch (err) {
+      alert("Failed to delete booking");
     }
   };
 
@@ -178,6 +218,104 @@ export const SharedBookings: React.FC<SharedBookingsProps> = ({ groupId, userRol
         )}
       </AnimatePresence>
 
+      {/* Edit Booking Overlay */}
+      <AnimatePresence>
+        {editingBooking && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingBooking(null)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-lg bg-[#0d1117]/90 border border-white/10 backdrop-blur-2xl rounded-3xl p-8 shadow-2xl z-10"
+            >
+              <h3 className="text-2xl font-bold text-white mb-6">Edit Shared Booking</h3>
+              <form onSubmit={handleEditSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Booking Reference / PNR</label>
+                  <input
+                    type="text"
+                    required
+                    value={editReference}
+                    onChange={(e) => setEditReference(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-gray-600 text-sm"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Booking Type</label>
+                    <select
+                      value={editType}
+                      onChange={(e) => setEditType(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm appearance-none cursor-pointer"
+                    >
+                      <option className="bg-gray-900" value="Flight">Flight</option>
+                      <option className="bg-gray-900" value="Hotel">Hotel</option>
+                      <option className="bg-gray-900" value="Car">Car Rental</option>
+                      <option className="bg-gray-900" value="Insurance">Insurance</option>
+                      <option className="bg-gray-900" value="Other">Other Ticket</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Amount (INR)</label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      value={editAmount}
+                      onChange={(e) => setEditAmount(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-gray-600 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Status</label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm appearance-none cursor-pointer"
+                  >
+                    <option className="bg-gray-900" value="Confirmed">Confirmed</option>
+                    <option className="bg-gray-900" value="Pending">Pending</option>
+                    <option className="bg-gray-900" value="Cancelled">Cancelled</option>
+                  </select>
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingBooking(null)}
+                    className="px-5 py-3 rounded-xl text-sm font-bold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 transition-all border border-white/5"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingEdit}
+                    className="px-6 py-3 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 transition-all flex items-center space-x-1"
+                  >
+                    {savingEdit ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Check className="w-4 h-4" />
+                    )}
+                    <span>Save Changes</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Bookings List */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -227,6 +365,25 @@ export const SharedBookings: React.FC<SharedBookingsProps> = ({ groupId, userRol
                   <span className="text-lg font-bold text-white font-mono mt-3">
                     {formatCurrency(booking.amount, "INR")}
                   </span>
+
+                  {canEdit && (
+                    <div className="flex items-center space-x-2 mt-3">
+                      <button
+                        onClick={() => handleStartEdit(booking)}
+                        className="p-2 bg-white/5 border border-white/10 rounded-lg text-gray-400 hover:text-white hover:border-indigo-500/30 hover:bg-white/10 transition-all"
+                        title="Edit booking"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(booking.id)}
+                        className="p-2 bg-white/5 border border-white/10 rounded-lg text-gray-400 hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/5 transition-all"
+                        title="Delete booking"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>

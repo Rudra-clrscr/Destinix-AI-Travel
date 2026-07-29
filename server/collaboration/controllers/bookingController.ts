@@ -36,4 +36,46 @@ export class BookingController {
       return res.status(500).json({ error: error.message || "Failed to fetch bookings" });
     }
   }
+
+  static async updateBooking(req: any, res: Response) {
+    try {
+      const bookingId = req.params.id;
+      const { bookingReference, bookingType, amount, status, tripGroupId } = req.body;
+
+      const booking = await BookingService.updateBooking(
+        bookingId,
+        bookingReference,
+        bookingType,
+        Number(amount),
+        status
+      );
+
+      if (req.io && tripGroupId) {
+        req.io.to(tripGroupId).emit("booking:updated", booking);
+      }
+
+      return res.json(booking);
+    } catch (error: any) {
+      console.error("Update booking error:", error);
+      return res.status(500).json({ error: error.message || "Failed to update booking" });
+    }
+  }
+
+  static async deleteBooking(req: any, res: Response) {
+    try {
+      const bookingId = req.params.id;
+      const { tripGroupId } = req.query;
+
+      await BookingService.deleteBooking(bookingId);
+
+      if (req.io && tripGroupId) {
+        req.io.to(tripGroupId as string).emit("booking:updated", { id: bookingId, deleted: true });
+      }
+
+      return res.json({ success: true, message: "Booking deleted" });
+    } catch (error: any) {
+      console.error("Delete booking error:", error);
+      return res.status(500).json({ error: error.message || "Failed to delete booking" });
+    }
+  }
 }

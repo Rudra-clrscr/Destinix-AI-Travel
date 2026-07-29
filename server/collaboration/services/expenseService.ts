@@ -29,6 +29,36 @@ export class ExpenseService {
     });
   }
 
+  static async getExpenseById(id: string) {
+    return await prisma.expense.findUnique({
+      where: { id },
+      include: {
+        payer: {
+          select: { id: true, name: true, email: true, avatar: true }
+        },
+        tripGroup: true
+      }
+    });
+  }
+
+  static async updateExpense(id: string, title: string, amount: number) {
+    return await prisma.expense.update({
+      where: { id },
+      data: { title, amount },
+      include: {
+        payer: {
+          select: { id: true, name: true, email: true, avatar: true }
+        }
+      }
+    });
+  }
+
+  static async deleteExpense(id: string) {
+    return await prisma.expense.delete({
+      where: { id }
+    });
+  }
+
   static async getExpenseSummary(groupId: string) {
     // 1. Fetch group members
     const members = await prisma.tripMember.findMany({

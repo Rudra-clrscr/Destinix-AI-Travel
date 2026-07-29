@@ -1,19 +1,33 @@
 import React, { useState } from "react";
 import { useExpenses } from "../../hooks/collaboration/useExpenses";
 import { formatCurrency } from "../../utils/currency";
-import { Plus, CreditCard, DollarSign, Users, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
-import { motion } from "motion/react";
+import { User } from "../../types";
+import { Plus, CreditCard, DollarSign, Users, RefreshCw, AlertCircle, Loader2, Edit2, Trash2, Check } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 
 interface GroupExpenseTrackerProps {
   groupId: string;
+  currentUser?: User;
+  userRole?: string; // "OWNER" | "EDITOR" | "VIEWER"
 }
 
-export const GroupExpenseTracker: React.FC<GroupExpenseTrackerProps> = ({ groupId }) => {
-  const { expenses, summary, loading, addExpense } = useExpenses(groupId);
+export const GroupExpenseTracker: React.FC<GroupExpenseTrackerProps> = ({ groupId, currentUser, userRole }) => {
+  const { expenses, summary, loading, addExpense, updateExpense, deleteExpense } = useExpenses(groupId);
   const [showAddForm, setShowAddForm] = useState(false);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const [editingExpense, setEditingExpense] = useState<any | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const isGroupOwner = userRole === "OWNER";
+
+  const canModifyExpense = (expense: any) => {
+    return isGroupOwner || (!!currentUser && expense.paidBy === currentUser.id);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +43,36 @@ export const GroupExpenseTracker: React.FC<GroupExpenseTrackerProps> = ({ groupI
       alert("Failed to record expense");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleStartEdit = (expense: any) => {
+    setEditingExpense(expense);
+    setEditTitle(expense.title || "");
+    setEditAmount(String(expense.amount));
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingExpense || !editTitle.trim() || !editAmount.trim() || savingEdit) return;
+
+    setSavingEdit(true);
+    try {
+      await updateExpense(editingExpense.id, editTitle.trim(), Number(editAmount));
+      setEditingExpense(null);
+    } catch (err) {
+      alert("Failed to update expense");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDelete = async (expenseId: string) => {
+    if (!window.confirm("Are you sure you want to delete this expense?")) return;
+    try {
+      await deleteExpense(expenseId);
+    } catch (err) {
+      alert("Failed to delete expense");
     }
   };
 
@@ -112,6 +156,74 @@ export const GroupExpenseTracker: React.FC<GroupExpenseTrackerProps> = ({ groupI
           </form>
         </motion.div>
       )}
+
+      {/* Edit Expense Form Overlay */}
+      <AnimatePresence>
+        {editingExpense && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingExpense(null)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-lg bg-[#0d1117]/90 border border-white/10 backdrop-blur-2xl rounded-3xl p-8 shadow-2xl z-10"
+            >
+              <h3 className="text-2xl font-bold text-white mb-6">Edit Expense</h3>
+              <form onSubmit={handleEditSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Expense Description</label>
+                  <input
+                    type="text"
+                    required
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-gray-600 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Amount paid (INR)</label>
+                  <input
+                    type="number"
+                    required
+                    min={0.01}
+                    step="any"
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-gray-600 text-sm"
+                  />
+                </div>
+                <div className="flex justify-end space-x-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingExpense(null)}
+                    className="px-5 py-3 rounded-xl text-sm font-bold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 transition-all border border-white/5"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingEdit}
+                    className="px-6 py-3 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 transition-all flex items-center space-x-1"
+                  >
+                    {savingEdit ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Check className="w-4 h-4" />
+                    )}
+                    <span>Save Changes</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Summary Widgets Row */}
       {loading && summary.totalExpenses === 0 ? (
@@ -267,9 +379,29 @@ export const GroupExpenseTracker: React.FC<GroupExpenseTrackerProps> = ({ groupI
                     </p>
                   </div>
                 </div>
-                <span className="font-mono font-bold text-white">
-                  {formatCurrency(exp.amount, "INR")}
-                </span>
+                <div className="flex items-center space-x-4">
+                  <span className="font-mono font-bold text-white">
+                    {formatCurrency(exp.amount, "INR")}
+                  </span>
+                  {canModifyExpense(exp) && (
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleStartEdit(exp)}
+                        className="p-2 bg-white/5 border border-white/10 rounded-lg text-gray-400 hover:text-white hover:border-indigo-500/30 hover:bg-white/10 transition-all"
+                        title="Edit expense"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(exp.id)}
+                        className="p-2 bg-white/5 border border-white/10 rounded-lg text-gray-400 hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/5 transition-all"
+                        title="Delete expense"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>

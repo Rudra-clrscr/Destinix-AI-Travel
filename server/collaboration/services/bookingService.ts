@@ -25,4 +25,34 @@ export class BookingService {
       orderBy: { createdAt: "desc" }
     });
   }
+
+  static async getBookingById(id: string) {
+    return await prisma.sharedBooking.findUnique({
+      where: { id }
+    });
+  }
+
+  static async updateBooking(
+    id: string,
+    bookingReference: string,
+    bookingType: string,
+    amount: number,
+    status: string
+  ) {
+    return await prisma.sharedBooking.update({
+      where: { id },
+      data: {
+        bookingReference,
+        bookingType,
+        amount,
+        status
+      }
+    });
+  }
+
+  static async deleteBooking(id: string) {
+    return await prisma.sharedBooking.delete({
+      where: { id }
+    });
+  }
 }

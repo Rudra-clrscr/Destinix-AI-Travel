@@ -328,7 +328,7 @@ export const GroupDashboard: React.FC<GroupDashboardProps> = ({ user, tab = "das
         )}
 
         {activeTab === "expenses" && (
-          <GroupExpenseTracker groupId={groupId!} />
+          <GroupExpenseTracker groupId={groupId!} currentUser={user} userRole={userRole} />
         )}
 
       </div>

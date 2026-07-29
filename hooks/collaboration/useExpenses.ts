@@ -38,6 +38,24 @@ export const useExpenses = (groupId: string | undefined) => {
     }
   };
 
+  const updateExpense = async (id: string, title: string, amount: number) => {
+    if (!groupId) return;
+    try {
+      return await expenseService.updateExpense(id, groupId, title, amount);
+    } catch (err: any) {
+      throw new Error(err.message || "Failed to update expense");
+    }
+  };
+
+  const deleteExpense = async (id: string) => {
+    if (!groupId) return;
+    try {
+      await expenseService.deleteExpense(id, groupId);
+    } catch (err: any) {
+      throw new Error(err.message || "Failed to delete expense");
+    }
+  };
+
   useEffect(() => {
     if (!groupId) return;
 
@@ -51,10 +69,17 @@ export const useExpenses = (groupId: string | undefined) => {
       fetchExpensesAndSummary();
     };
 
+    const handleUpdated = () => {
+      // Covers both edits and deletes; re-fetch to keep balances/settlements accurate
+      fetchExpensesAndSummary();
+    };
+
     socket.on("expense:created", handleCreated);
+    socket.on("expense:updated", handleUpdated);
 
     return () => {
       socket.off("expense:created", handleCreated);
+      socket.off("expense:updated", handleUpdated);
     };
   }, [groupId]);
 
@@ -64,6 +89,8 @@ export const useExpenses = (groupId: string | undefined) => {
     loading,
     error,
     fetchExpensesAndSummary,
-    addExpense
+    addExpense,
+    updateExpense,
+    deleteExpense
   };
 };

@@ -133,6 +133,21 @@ router.post(
   validateBody(["bookingReference", "bookingType", "amount", "status"]),
   BookingController.createBookingRecord
 );
+router.put(
+  "/bookings/:id",
+  authenticate,
+  checkGroupMembership,
+  checkGroupRole(["OWNER", "EDITOR"]),
+  validateBody(["bookingReference", "bookingType", "amount", "status", "tripGroupId"]),
+  BookingController.updateBooking
+);
+router.delete(
+  "/bookings/:id",
+  authenticate,
+  checkGroupMembership,
+  checkGroupRole(["OWNER", "EDITOR"]),
+  BookingController.deleteBooking
+);
 
 // --- Expense Tracking ---
 router.get("/groups/:id/expenses", authenticate, checkGroupMembership, ExpenseController.listExpenses);
@@ -143,6 +158,21 @@ router.post(
   checkGroupMembership,
   validateBody(["title", "amount"]),
   ExpenseController.addExpense
+);
+// Editing/deleting an expense is restricted to the original payer or the group
+// owner (checked inside ExpenseController), not by role, so no checkGroupRole here.
+router.put(
+  "/expenses/:id",
+  authenticate,
+  checkGroupMembership,
+  validateBody(["title", "amount", "tripGroupId"]),
+  ExpenseController.updateExpense
+);
+router.delete(
+  "/expenses/:id",
+  authenticate,
+  checkGroupMembership,
+  ExpenseController.deleteExpense
 );
 
 export default router;
