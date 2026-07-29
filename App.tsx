@@ -25,6 +25,7 @@ import { MOCK_PACKAGES, MOODS, CATEGORIES } from './constants.tsx';
 import PackageFilters, { DurationBucket, SortOption, TripType, TRIP_TYPES } from './components/PackageFilters';
 import PrivacyPolicy from "./components/PrivacyPolicy";
 import { getCurrentUser, logout as performLogout, updateProfile, isAdminUser } from './services/authService';
+import { reauthSocket } from './services/collaboration/socket';
 import AdminDashboard from './components/AdminDashboard';
 import { getPackages } from './services/packageService';
 import { chatWithAdvisor } from './services/geminiService';
@@ -161,12 +162,19 @@ const App: React.FC = () => {
   const handleAuthSuccess = (authenticatedUser: User) => {
     setUser(authenticatedUser);
     setShowAuth(false);
+    // The collaboration socket may have connected (and been rejected by the
+    // server's auth middleware) before login finished; re-auth it now with
+    // the freshly-stored token instead of waiting for the next automatic
+    // reconnection attempt.
+    reauthSocket();
     if (currentPage === Page.Home) navigate('/planner');
   };
 
   const handleLogout = () => {
     performLogout();
     setUser(null);
+    // Drop the now-unauthenticated socket connection immediately.
+    reauthSocket();
     navigate('/');
   };
 
